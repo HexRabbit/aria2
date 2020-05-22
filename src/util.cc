@@ -2230,19 +2230,20 @@ bool inSameCidrBlock(const std::string& ip1, const std::string& ip2,
 namespace {
 
 void executeHook(const std::string& command, a2_gid_t gid, size_t numFiles,
-                 const std::string& firstFilename)
+                 const std::string& firstFilename, const std::string& basePath)
 {
   const std::string gidStr = GroupId::toHex(gid);
   const std::string numFilesStr = util::uitos(numFiles);
 #ifndef __MINGW32__
-  A2_LOG_INFO(fmt("Executing user command: %s %s %s %s", command.c_str(),
-                  gidStr.c_str(), numFilesStr.c_str(), firstFilename.c_str()));
+  A2_LOG_INFO(fmt("Executing user command: %s %s %s %s %s", command.c_str(),
+                  gidStr.c_str(), numFilesStr.c_str(), firstFilename.c_str(),
+                  basePath.c_str()));
   pid_t cpid = fork();
   if (cpid == 0) {
     // child!
     execlp(command.c_str(), command.c_str(), gidStr.c_str(),
            numFilesStr.c_str(), firstFilename.c_str(),
-           reinterpret_cast<char*>(0));
+           basePath.c_str(), reinterpret_cast<char*>(0));
     perror(("Could not execute user command: " + command).c_str());
     _exit(EXIT_FAILURE);
     return;
@@ -2324,7 +2325,7 @@ void executeHookByOptName(const RequestGroup* group, const Option* option,
   const std::string& cmd = option->get(pref);
   if (!cmd.empty()) {
     const std::shared_ptr<DownloadContext> dctx = group->getDownloadContext();
-    std::string firstFilename;
+    std::string firstFilename, basePath;
     size_t numFiles = 0;
     if (!group->inMemoryDownload()) {
       std::shared_ptr<FileEntry> file = dctx->getFirstRequestedFileEntry();
@@ -2332,8 +2333,9 @@ void executeHookByOptName(const RequestGroup* group, const Option* option,
         firstFilename = file->getPath();
       }
       numFiles = dctx->countRequestedFileEntry();
+      basePath = dctx->getBasePath();
     }
-    executeHook(cmd, group->getGID(), numFiles, firstFilename);
+    executeHook(cmd, group->getGID(), numFiles, firstFilename, basePath);
   }
 }
 
